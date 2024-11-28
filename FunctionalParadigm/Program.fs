@@ -14,120 +14,163 @@ type Member = {
     BorrowedBooks: BorrowedBook list
 }
 
-let booksFile = "B:\\Development\\F# project\\books.txt"
-let membersFile = "B:\\Development\\F# project\\members.txt"
-let borrowingHistory = "B:\\Development\F# project\\borrowingHistory.txt"
+let booksFile = "books.txt"
+let membersFile = "members.txt"
+let borrowingHistory = "borrowingHistory.txt"
 
 //add members function
-// Convert a Member to a file-friendly string
 let memberToString (m: Member) =
     let books = 
         m.BorrowedBooks 
-        |> List.map fst // Extract book names
+        |> List.map fst
         |> String.concat ", "
     $"{m.UserName} [{books}]"
 
 // Parse a string back into a Member
 let stringToMember (line: string) =
-    let usernameEndIndex = line.IndexOf(" [")
-    if usernameEndIndex < 0 then
-        failwith "Invalid member format"
-    else
-        let username = line.Substring(0, usernameEndIndex)
-        let booksPart = line.Substring(usernameEndIndex + 2).TrimEnd(']')
-        let books = 
-            if booksPart = "" then []
-            else booksPart.Split(", ") |> List.ofArray |> List.map (fun title -> title, DateTime.MinValue)
-        { UserName = username; BorrowedBooks = books }
+    try
+        let usernameEndIndex = line.IndexOf(" [")
+        if usernameEndIndex < 0 then
+            failwith "Invalid member format"
+        else
+            let username = line.Substring(0, usernameEndIndex)
+            let booksPart = line.Substring(usernameEndIndex + 2).TrimEnd(']')
+            let books = 
+                if booksPart = "" then []
+                else booksPart.Split(", ") |> List.ofArray |> List.map (fun title -> title, DateTime.MinValue)
+            { UserName = username; BorrowedBooks = books }
+    with
+    | :? ArgumentException as ex ->
+        printfn "Argument exception: %s" ex.Message
+        { UserName = ""; BorrowedBooks = [] } // Return a default member object
+    | :? FormatException as ex ->
+        printfn "Format exception: %s" ex.Message
+        { UserName = ""; BorrowedBooks = [] }
+    | ex ->
+        printfn "Unexpected error: %s" ex.Message
+        { UserName = ""; BorrowedBooks = [] }
 
 // Add a member to the file
 let addMemberToFile (filePath: string) (newMember: Member) =
-    // Ensure the file exists
-    if not (File.Exists filePath) then
-        File.Create(filePath).Dispose() // Create an empty file
+    try
+        if not (File.Exists filePath) then
+            File.Create(filePath).Dispose() // Create an empty file if it doesn't exist
 
-    // Read all members from the file
-    let existingMembers =
-        File.ReadAllLines(filePath)
-        |> Array.map stringToMember
-        |> Array.toList
+        let existingMembers =
+            try
+                File.ReadAllLines(filePath)
+                |> Array.map stringToMember
+                |> Array.toList
+            with
+            | ex ->
+                printfn "Error reading members: %s" ex.Message
+                [] // Return an empty list if there's an error
 
-    // Check if the username already exists
-    if existingMembers |> List.exists (fun m -> m.UserName = newMember.UserName) then
-        printfn $"This username already exists: %s{newMember.UserName}"
-    else
-        // Ensure a newline is added if the file doesn't end with one
-        let memberString = memberToString newMember
-        if File.ReadAllText(filePath).EndsWith(Environment.NewLine) then
-            File.AppendAllText(filePath, memberString + Environment.NewLine)
+        if existingMembers |> List.exists (fun m -> m.UserName = newMember.UserName) then
+            printfn "Username '%s' already exists." newMember.UserName
         else
-            File.AppendAllText(filePath, Environment.NewLine + memberString + Environment.NewLine)
-        printfn $"Member %s{newMember.UserName} has been added successfully."
+            let memberString = memberToString newMember
+            try
+                File.AppendAllText(filePath, memberString + Environment.NewLine)
+                printfn "Member '%s' added successfully." newMember.UserName
+            with
+            | ex ->
+                printfn "Error writing to file: %s" ex.Message
+    with
+    | :? IOException as ex ->
+        printfn "File operation failed: %s" ex.Message
+    | ex ->
+        printfn "Unexpected error: %s" ex.Message
+
 
 //display members
-// View all members
 let viewAllMembers (filePath: string) =
-    if not (File.Exists filePath) then
-        printfn "Members file does not exist."
-    else
-        // Load members and print them
-        let members =
-            File.ReadAllLines(filePath)
-            |> Array.map stringToMember
-
-        if members.Length = 0 then
-            printfn "No members found."
+    try
+        if not (File.Exists filePath) then
+            printfn "Members file does not exist."
         else
-            printfn "List of Members:"
-            members
-            |> Array.iter (fun m -> 
-                let borrowedBooks = 
-                    if m.BorrowedBooks |> List.isEmpty then "No books borrowed"
-                    else m.BorrowedBooks |> List.map fst |> String.concat ", "
-                printfn $"Username: {m.UserName}, Borrowed Books: {borrowedBooks}")
+            let members =
+                try
+                    File.ReadAllLines(filePath)
+                    |> Array.map stringToMember
+                with
+                | ex ->
+                    printfn "Error reading members: %s" ex.Message
+                    [||] // Return an empty array
 
-//////////////////////////////////////////////
+            if members.Length = 0 then
+                printfn "No members found."
+            else
+                printfn "List of Members:"
+                members
+                |> Array.iter (fun m -> 
+                    let borrowedBooks = 
+                        if m.BorrowedBooks |> List.isEmpty then "No books borrowed"
+                        else m.BorrowedBooks |> List.map fst |> String.concat ", "
+                    printfn "Username: %s, Borrowed Books: %s" m.UserName borrowedBooks)
+    with
+    | ex ->
+        printfn "Unexpected error: %s" ex.Message
+
 // add update remove book
-
-// Convert a Book to a file-friendly string
 let bookToString (b: Book) =
     $"{b.Title}|{b.Author}|{b.Genre}|{b.IsAvailable}"
 
 // Parse a string back into a Book
 let stringToBook (line: string) =
-    let parts = line.Split('|')
-    if parts.Length <> 4 then
-        failwith "Invalid book format"
-    else
-        {
-            Title = parts[0]
-            Author = parts[1]
-            Genre = parts[2]
-            IsAvailable = Boolean.Parse(parts[3])
-        }
+    try
+        let parts = line.Split('|')
+        if parts.Length <> 4 then
+            failwith "Invalid book format"
+        else
+            {
+                Title = parts[0]
+                Author = parts[1]
+                Genre = parts[2]
+                IsAvailable = Boolean.Parse(parts[3])
+            }
+    with
+    | :? FormatException as ex ->
+        printfn "Error parsing book: %s" ex.Message
+        { Title = ""; Author = ""; Genre = ""; IsAvailable = false } // Return a default book object
+    | ex ->
+        printfn "Unexpected error: %s" ex.Message
+        { Title = ""; Author = ""; Genre = ""; IsAvailable = false }
+
 
 // Add a book to the file
 let addBookToFile (filePath: string) (newBook: Book) =
-    // Ensure the file exists
-    if not (File.Exists filePath) then
-        File.Create(filePath).Dispose() // Create an empty file
+    try
+        if not (File.Exists filePath) then
+            File.Create(filePath).Dispose() // Create file if it doesn't exist
 
-    // Read all books from the file
-    let existingBooks =
-        File.ReadAllLines(filePath)
-        |> Array.map stringToBook
-        |> Array.toList
+        let existingBooks =
+            try
+                File.ReadAllLines(filePath)
+                |> Array.map stringToBook
+                |> Array.toList
+            with
+            | ex ->
+                printfn "Error reading books: %s" ex.Message
+                [] // Return an empty list
 
-    // Check if the book already exists by title
-    if existingBooks |> List.exists (fun b -> b.Title = newBook.Title) then
-        printfn $"The book with title '%s{newBook.Title}' already exists."
-    else
-        // Append the new book to the file
-        let bookString = bookToString newBook
-        File.AppendAllText(filePath, bookString + Environment.NewLine)
-        printfn $"Book '%s{newBook.Title}' has been added successfully."
+        if existingBooks |> List.exists (fun b -> b.Title = newBook.Title) then
+            printfn "Book '%s' already exists." newBook.Title
+        else
+            let bookString = bookToString newBook
+            try
+                File.AppendAllText(filePath, bookString + Environment.NewLine)
+                printfn "Book '%s' added successfully." newBook.Title
+            with
+            | ex ->
+                printfn "Error writing to file: %s" ex.Message
+    with
+    | :? IOException as ex ->
+        printfn "File operation failed: %s" ex.Message
+    | ex ->
+        printfn "Unexpected error: %s" ex.Message
 
-// Update a book in the file
+
 let updateBookInFile (filePath: string) (updatedBook: Book) =
     if not (File.Exists filePath) then
         printfn "Books file does not exist."
@@ -138,43 +181,78 @@ let updateBookInFile (filePath: string) (updatedBook: Book) =
             |> Array.map stringToBook
             |> Array.toList
 
-        // Replace the old book entry with the updated one
         let updatedBooks =
             existingBooks
             |> List.map (fun b -> if b.Title = updatedBook.Title then updatedBook else b)
 
-        // Write back the updated list of books
         let updatedContent = updatedBooks |> List.map bookToString |> String.concat Environment.NewLine
         File.WriteAllText(filePath, updatedContent)
         printfn $"Book '%s{updatedBook.Title}' has been updated successfully."
 
-// Remove a book from the file
-let removeBookFromFile (filePath: string) (title: string) =
-    if not (File.Exists filePath) then
-        printfn "Books file does not exist."
-    else
-        // Read all books from the file
-        let existingBooks =
-            File.ReadAllLines(filePath)
-            |> Array.map stringToBook
-            |> Array.toList
+let removeBook (booksFilePath: string) (membersFilePath: string) (bookTitle: string) =
+    try
+        if not (File.Exists booksFilePath) then
+            printfn "Books file does not exist."
+        elif not (File.Exists membersFilePath) then
+            printfn "Members file does not exist."
+        else
+            // Read all members and check if any member has borrowed the book
+            let members =
+                try
+                    File.ReadAllLines(membersFilePath)
+                    |> Array.map stringToMember
+                    |> Array.toList
+                with
+                | ex ->
+                    printfn "Error reading members: %s" ex.Message
+                    []
 
-        // Filter out the book with the given title
-        let remainingBooks =
-            existingBooks
-            |> List.filter (fun b -> b.Title <> title)
+            let membersWithBook =
+                members
+                |> List.filter (fun m -> m.BorrowedBooks |> List.exists (fun (title, _) -> title = bookTitle))
 
-        // Write back the remaining books
-        let updatedContent = remainingBooks |> List.map bookToString |> String.concat Environment.NewLine
-        File.WriteAllText(filePath, updatedContent)
-        printfn $"Book '%s{title}' has been removed successfully."
+            if membersWithBook |> List.isEmpty then
+                // If no member has the book, proceed to remove it from the books file
+                let books =
+                    try
+                        File.ReadAllLines(booksFilePath)
+                        |> Array.map stringToBook
+                        |> Array.toList
+                    with
+                    | ex ->
+                        printfn "Error reading books: %s" ex.Message
+                        []
+
+                let updatedBooks = books |> List.filter (fun b -> b.Title <> bookTitle)
+
+                if List.length books = List.length updatedBooks then
+                    printfn "Book '%s' does not exist in the library." bookTitle
+                else
+                    try
+                        let updatedContent = updatedBooks |> List.map bookToString |> String.concat Environment.NewLine
+                        File.WriteAllText(booksFilePath, updatedContent)
+                        printfn "Book '%s' has been removed successfully." bookTitle
+                    with
+                    | ex ->
+                        printfn "Error writing to books file: %s" ex.Message
+            else
+                // If the book is borrowed, list the members who have it
+                printfn "Book '%s' is currently borrowed by the following member(s):" bookTitle
+                membersWithBook
+                |> List.iter (fun m -> printfn "- %s" m.UserName)
+
+    with
+    | :? IOException as ex ->
+        printfn "File operation failed: %s" ex.Message
+    | ex ->
+        printfn "Unexpected error: %s" ex.Message
+
 
 // search for a book
 let searchBooks (booksFile: string) (query: string) =
     if not (File.Exists booksFile) then
         printfn "Books file does not exist."
     else
-        // Load books and filter based on the query
         let books =
             File.ReadAllLines(booksFile)
             |> Array.map stringToBook
@@ -183,7 +261,6 @@ let searchBooks (booksFile: string) (query: string) =
                 b.Author.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 b.Genre.Contains(query, StringComparison.OrdinalIgnoreCase))
 
-        // Print matching books
         if books |> Array.isEmpty then
             printfn $"No books found for query: %s{query}"
         else
@@ -191,15 +268,11 @@ let searchBooks (booksFile: string) (query: string) =
             books
             |> Array.iter (fun b -> printfn $"{b.Title} by {b.Author}, Genre: {b.Genre}, Available: {b.IsAvailable}")
 
-///////////////////////////////////////////
-// borrow functionality
 // Borrow a book
 let borrowBook (booksFile: string) (membersFile: string) (historyFile: string) (memberName: string) (bookTitle: string) =
-    // Ensure all files exist
     if not (File.Exists booksFile && File.Exists membersFile) then
         printfn "Books or members file does not exist."
     else
-        // Load books and members
         let books = 
             File.ReadAllLines(booksFile)
             |> Array.map stringToBook
@@ -210,16 +283,13 @@ let borrowBook (booksFile: string) (membersFile: string) (historyFile: string) (
             |> Array.map stringToMember
             |> Array.toList
 
-        // Find the book and member
         match List.tryFind (fun b -> b.Title = bookTitle && b.IsAvailable) books, 
               List.tryFind (fun m -> m.UserName = memberName) members with
         | Some book, Some m ->
-            // Update the book's availability
             let updatedBooks = 
                 books
                 |> List.map (fun b -> if b.Title = book.Title then { b with IsAvailable = false } else b)
 
-            // Update the member's borrowed books
             let updatedMember =
                 { m with BorrowedBooks = (bookTitle, DateTime.Now) :: m.BorrowedBooks }
 
@@ -227,14 +297,12 @@ let borrowBook (booksFile: string) (membersFile: string) (historyFile: string) (
                 members
                 |> List.map (fun m -> if m.UserName = memberName then updatedMember else m)
 
-            // Write back the updated books and members
             let updatedBooksContent = updatedBooks |> List.map bookToString |> String.concat Environment.NewLine
             File.WriteAllText(booksFile, updatedBooksContent)
 
             let updatedMembersContent = updatedMembers |> List.map memberToString |> String.concat Environment.NewLine
             File.WriteAllText(membersFile, updatedMembersContent)
 
-            // Add to history file
             let historyEntry = $"{memberName} borrowed {bookTitle} on {DateTime.Now}"
             File.AppendAllText(historyFile, historyEntry + Environment.NewLine)
 
@@ -244,11 +312,9 @@ let borrowBook (booksFile: string) (membersFile: string) (historyFile: string) (
 
 // Return a book
 let returnBook (booksFile: string) (membersFile: string) (historyFile: string) (memberName: string) (bookTitle: string) =
-    // Ensure all files exist
     if not (File.Exists booksFile && File.Exists membersFile) then
         printfn "Books or members file does not exist."
     else
-        // Load books and members
         let books = 
             File.ReadAllLines(booksFile)
             |> Array.map stringToBook
@@ -259,16 +325,13 @@ let returnBook (booksFile: string) (membersFile: string) (historyFile: string) (
             |> Array.map stringToMember
             |> Array.toList
 
-        // Find the book and member
         match List.tryFind (fun b -> b.Title = bookTitle) books, 
               List.tryFind (fun m -> m.UserName = memberName) members with
         | Some book, Some m ->
-            // Update the book's availability
             let updatedBooks = 
                 books
                 |> List.map (fun b -> if b.Title = book.Title then { b with IsAvailable = true } else b)
 
-            // Update the member's borrowed books
             let updatedMember =
                 { m with BorrowedBooks = m.BorrowedBooks |> List.filter (fun (title, _) -> title <> bookTitle) }
 
@@ -276,46 +339,39 @@ let returnBook (booksFile: string) (membersFile: string) (historyFile: string) (
                 members
                 |> List.map (fun m -> if m.UserName = memberName then updatedMember else m)
 
-            // Write back the updated books and members
             let updatedBooksContent = updatedBooks |> List.map bookToString |> String.concat Environment.NewLine
             File.WriteAllText(booksFile, updatedBooksContent)
 
             let updatedMembersContent = updatedMembers |> List.map memberToString |> String.concat Environment.NewLine
             File.WriteAllText(membersFile, updatedMembersContent)
 
-            // Add to history file
             let historyEntry = $"{memberName} returned {bookTitle} on {DateTime.Now}"
             File.AppendAllText(historyFile, historyEntry + Environment.NewLine)
 
             printfn $"Member '%s{memberName}' returned the book '%s{bookTitle}'."
         | None, _ -> printfn "Book not found."
         | _, None -> printfn "Member not found."
-////////////////////////////////////
 // creating a report for the existing books
 let listAvailableBooks (booksFile: string) =
     if not (File.Exists booksFile) then
         printfn "Books file does not exist."
     else
-        // Load books and filter only available ones
         let availableBooks =
             File.ReadAllLines(booksFile)
             |> Array.map stringToBook
             |> Array.filter (fun b -> b.IsAvailable)
 
-        // Print available books
         if availableBooks |> Array.isEmpty then
             printfn "No available books at the moment."
         else
             printfn "Available books:"
             availableBooks
             |> Array.iter (fun b -> printfn $"{b.Title} by {b.Author}, Genre: {b.Genre}")
-////////////////////////////////////
 // creates a list of the transactions happened
 let printHistory (historyFile: string) =
     if not (File.Exists historyFile) then
         printfn "History file does not exist."
     else
-        // Read and print history file contents
         let history = File.ReadAllLines(historyFile)
         if history.Length = 0 then
             printfn "The borrowing history is empty."
@@ -323,7 +379,6 @@ let printHistory (historyFile: string) =
             printfn "Borrowing History:"
             history
             |> Array.iter (fun line -> printfn $"{line}")
-///////////////////////////////////
 // the main function
 
 [<EntryPoint>]
@@ -374,7 +429,7 @@ let main argv =
         | "4" ->
             printf "Enter the title of the book to remove: "
             let title = Console.ReadLine()
-            removeBookFromFile booksFile title
+            removeBook booksFile title
             menu ()
         | "5" ->
             printf "Enter your username: "

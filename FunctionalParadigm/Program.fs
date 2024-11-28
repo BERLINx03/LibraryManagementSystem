@@ -60,6 +60,29 @@ let addMemberToFile (filePath: string) (newMember: Member) =
         let memberString = memberToString newMember
         File.AppendAllText(filePath, memberString + Environment.NewLine)
         printfn $"Member %s{newMember.UserName} has been added successfully."
+        
+//display members
+// View all members
+let viewAllMembers (filePath: string) =
+    if not (File.Exists filePath) then
+        printfn "Members file does not exist."
+    else
+        // Load members and print them
+        let members =
+            File.ReadAllLines(filePath)
+            |> Array.map stringToMember
+
+        if members.Length = 0 then
+            printfn "No members found."
+        else
+            printfn "List of Members:"
+            members
+            |> Array.iter (fun m -> 
+                let borrowedBooks = 
+                    if m.BorrowedBooks |> List.isEmpty then "No books borrowed"
+                    else m.BorrowedBooks |> List.map fst |> String.concat ", "
+                printfn $"Username: {m.UserName}, Borrowed Books: {borrowedBooks}")
+
 //////////////////////////////////////////////
 // add update remove book
 
@@ -373,6 +396,9 @@ let main argv =
             menu ()
         | "9" ->
             printHistory borrowingHistory
+            menu ()
+        | "10" ->
+            viewAllMembers membersFile
             menu ()
         | "0" ->
             printfn "Exiting the system. Goodbye!"

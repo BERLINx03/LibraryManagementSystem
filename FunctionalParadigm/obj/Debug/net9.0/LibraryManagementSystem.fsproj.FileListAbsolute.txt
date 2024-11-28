@@ -27,3 +27,4 @@ B:\Development\F# project\FunctionalParadigm\obj\Debug\net9.0\refint\LibraryMana
 B:\Development\F# project\FunctionalParadigm\obj\Debug\net9.0\LibraryManagementSystem.pdb
 B:\Development\F# project\FunctionalParadigm\obj\Debug\net9.0\LibraryManagementSystem.genruntimeconfig.cache
 B:\Development\F# project\FunctionalParadigm\obj\Debug\net9.0\ref\LibraryManagementSystem.dll
+B:\Development\F# project\FunctionalParadigm\obj\Debug\net9.0\LibraryManagementSystem.sourcelink.json

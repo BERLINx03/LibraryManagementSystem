@@ -1,1 +1,1 @@
-Android with Kotlin|Abdallah|software development|True
+Android with Kotlin|berlin|mobile development|True

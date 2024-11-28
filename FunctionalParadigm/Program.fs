@@ -56,11 +56,14 @@ let addMemberToFile (filePath: string) (newMember: Member) =
     if existingMembers |> List.exists (fun m -> m.UserName = newMember.UserName) then
         printfn $"This username already exists: %s{newMember.UserName}"
     else
-        // Append the new member to the file
+        // Ensure a newline is added if the file doesn't end with one
         let memberString = memberToString newMember
-        File.AppendAllText(filePath, memberString + Environment.NewLine)
+        if File.ReadAllText(filePath).EndsWith(Environment.NewLine) then
+            File.AppendAllText(filePath, memberString + Environment.NewLine)
+        else
+            File.AppendAllText(filePath, Environment.NewLine + memberString + Environment.NewLine)
         printfn $"Member %s{newMember.UserName} has been added successfully."
-        
+
 //display members
 // View all members
 let viewAllMembers (filePath: string) =
@@ -222,7 +225,7 @@ let borrowBook (booksFile: string) (membersFile: string) (historyFile: string) (
 
             let updatedMembers =
                 members
-                |> List.map (fun m -> if m.UserName = m.UserName then updatedMember else m)
+                |> List.map (fun m -> if m.UserName = memberName then updatedMember else m)
 
             // Write back the updated books and members
             let updatedBooksContent = updatedBooks |> List.map bookToString |> String.concat Environment.NewLine
@@ -271,7 +274,7 @@ let returnBook (booksFile: string) (membersFile: string) (historyFile: string) (
 
             let updatedMembers =
                 members
-                |> List.map (fun m -> if m.UserName = m.UserName then updatedMember else m)
+                |> List.map (fun m -> if m.UserName = memberName then updatedMember else m)
 
             // Write back the updated books and members
             let updatedBooksContent = updatedBooks |> List.map bookToString |> String.concat Environment.NewLine
@@ -336,6 +339,7 @@ let main argv =
         printfn "7. Search for a book"
         printfn "8. List available books"
         printfn "9. Print borrowing history"
+        printfn "10. View all members"
         printfn "0. Exit"
         printf "Enter your choice: "
         match Console.ReadLine() with

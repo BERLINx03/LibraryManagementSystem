@@ -37,7 +37,7 @@ The system operates on three main files that store data:
 ## File Format
 
 ### books.txt
-Each line represents a book and follows this format:
+Each line represents a book has field separated by non-whitespace as the book's name or author may be more than one word and follows this format:
 ```
 Title|Author|Genre|IsAvailable
 ```

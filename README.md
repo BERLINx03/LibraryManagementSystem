@@ -38,7 +38,9 @@ The system operates on three main files that store data:
 
 ### books.txt
 Each line represents a book and follows this format:
+
 Title|Author|Genre|IsAvailable
+
 Where:
 - `Title`: The title of the book.
 - `Author`: The author of the book.
@@ -47,11 +49,14 @@ Where:
 
 ### members.txt
 Each line represents a member and follows this format:
+
 UserName [Book1, Book2, ...]
+
 Where:
 - `UserName`: The username of the member.
 - `Book1, Book2, ...`: A comma-separated list of books the member has borrowed.
 
 ### borrowingHistory.txt
 Each line represents a transaction (borrow or return) and follows this format:
-YYYY-MM-DD HH:MM:SS: MemberName borrowed/returned BookTitle
+
+MemberName borrowed/returned BookTitle MM-DD-YYYY HH:MM:SS:   
